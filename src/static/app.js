@@ -90,7 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
-        await fetchActivities();
+        await refreshActivitiesSelect();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
@@ -125,7 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
       );
 
       if (response.ok) {
-        await fetchActivities();
+        await refreshActivitiesSelect();
       } else {
         const result = await response.json();
         console.error("Unregister failed:", result.detail);
@@ -135,6 +135,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  async function refreshActivitiesSelect() {
+    if (activitySelect) {
+      const firstOption = activitySelect.querySelector("option");
+      let placeholderOption = null;
+      if (firstOption) {
+        placeholderOption = firstOption.cloneNode(true);
+      }
+      activitySelect.innerHTML = "";
+      if (placeholderOption) {
+        activitySelect.appendChild(placeholderOption);
+      }
+    }
+    await fetchActivities();
+  }
+
   // Initialize app
-  fetchActivities();
+  refreshActivitiesSelect();
 });
