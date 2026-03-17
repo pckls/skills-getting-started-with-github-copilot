@@ -4,6 +4,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
 
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
   // Function to fetch activities from API
   async function fetchActivities() {
     try {
@@ -19,12 +27,32 @@ document.addEventListener("DOMContentLoaded", () => {
         activityCard.className = "activity-card";
 
         const spotsLeft = details.max_participants - details.participants.length;
+        const participantsList = details.participants.length
+          ? `<ul class="participants-list">${details.participants
+              .map(
+                (participant) =>
+                  `<li>
+                    <span class="participant-email">${escapeHtml(participant)}</span>
+                    <button class="unregister-btn" data-activity="${escapeHtml(name)}" data-email="${escapeHtml(participant)}" title="Unregister participant">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true">
+                        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+                        <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+                      </svg>
+                    </button>
+                  </li>`
+              )
+              .join("")}</ul>`
+          : '<p class="participants-empty">No participants yet.</p>';
 
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <p class="participants-title"><strong>Participants</strong></p>
+            ${participantsList}
+          </div>
         `;
 
         activitiesList.appendChild(activityCard);
@@ -62,6 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        await refreshActivitiesSelect();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
@@ -81,6 +110,46 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Handle unregister (delete) clicks via event delegation
+  activitiesList.addEventListener("click", async (event) => {
+    const btn = event.target.closest(".unregister-btn");
+    if (!btn) return;
+
+    const activity = btn.dataset.activity;
+    const email = btn.dataset.email;
+
+    try {
+      const response = await fetch(
+        `/activities/${encodeURIComponent(activity)}/signup?email=${encodeURIComponent(email)}`,
+        { method: "DELETE" }
+      );
+
+      if (response.ok) {
+        await refreshActivitiesSelect();
+      } else {
+        const result = await response.json();
+        console.error("Unregister failed:", result.detail);
+      }
+    } catch (error) {
+      console.error("Error unregistering participant:", error);
+    }
+  });
+
+  async function refreshActivitiesSelect() {
+    if (activitySelect) {
+      const firstOption = activitySelect.querySelector("option");
+      let placeholderOption = null;
+      if (firstOption) {
+        placeholderOption = firstOption.cloneNode(true);
+      }
+      activitySelect.innerHTML = "";
+      if (placeholderOption) {
+        activitySelect.appendChild(placeholderOption);
+      }
+    }
+    await fetchActivities();
+  }
+
   // Initialize app
-  fetchActivities();
+  refreshActivitiesSelect();
 });
